@@ -1,0 +1,249 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_TREE_HT 100
+
+// Structure for Min Heap Node
+struct MinHeapNode {
+    char character;
+    unsigned frequency;
+    struct MinHeapNode *left, *right;
+};
+
+// Structure for Min Heap
+struct MinHeap {
+    unsigned size;
+    unsigned capacity;
+    struct MinHeapNode **array;
+};
+
+// Function to create a new Min Heap Node
+struct MinHeapNode *newNode(char character, unsigned frequency) {
+    struct MinHeapNode *temp = (struct MinHeapNode *)malloc(sizeof(struct MinHeapNode));
+    temp->left = temp->right = NULL;
+    temp->character = character;
+    temp->frequency = frequency;
+    return temp;
+}
+
+// Function to create a Min Heap
+struct MinHeap *createMinHeap(unsigned capacity) {
+    struct MinHeap *minHeap = (struct MinHeap *)malloc(sizeof(struct MinHeap));
+    minHeap->size = 0;
+    minHeap->capacity = capacity;
+    minHeap->array = (struct MinHeapNode **)malloc(minHeap->capacity * sizeof(struct MinHeapNode *));
+    return minHeap;
+}
+
+// Function to swap two Min Heap Nodes
+void swapMinHeapNode(struct MinHeapNode **a, struct MinHeapNode **b) {
+    struct MinHeapNode *t = *a;
+    *a = *b;
+    *b = t;
+}
+
+// Function to heapify a Min Heap
+void minHeapify(struct MinHeap *minHeap, int idx) {
+    int smallest = idx;
+    int left = 2 * idx + 1;
+    int right = 2 * idx + 2;
+    if (left < minHeap->size && minHeap->array[left]->frequency < minHeap->array[smallest]->frequency)
+        smallest = left;
+    if (right < minHeap->size && minHeap->array[right]->frequency < minHeap->array[smallest]->frequency)
+        smallest = right;
+    if (smallest != idx) {
+        swapMinHeapNode(&minHeap->array[smallest], &minHeap->array[idx]);
+        minHeapify(minHeap, smallest);
+    }
+}
+
+// Function to check if Min Heap has only one node
+int isSizeOne(struct MinHeap *minHeap) {
+    return (minHeap->size == 1);
+}
+
+// Function to extract the minimum node from Min Heap
+struct MinHeapNode *extractMin(struct MinHeap *minHeap) {
+    struct MinHeapNode *temp = minHeap->array[0];
+    minHeap->array[0] = minHeap->array[minHeap->size - 1];
+    --minHeap->size;
+    minHeapify(minHeap, 0);
+    return temp;
+}
+
+// Function to insert a new node to Min Heap
+void insertMinHeap(struct MinHeap *minHeap, struct MinHeapNode *minHeapNode) {
+    ++minHeap->size;
+    int i = minHeap->size - 1;
+    while (i && minHeapNode->frequency < minHeap->array[(i - 1) / 2]->frequency) {
+        minHeap->array[i] = minHeap->array[(i - 1) / 2];
+        i = (i - 1) / 2;
+    }
+    minHeap->array[i] = minHeapNode;
+}
+
+// Function to build Min Heap
+void buildMinHeap(struct MinHeap *minHeap) {
+    int n = minHeap->size - 1;
+    int i;
+    for (i = (n - 1) / 2; i >= 0; --i)
+        minHeapify(minHeap, i);
+}
+
+// Function to print an array
+void printArr(int arr[], int n) {
+    int i;
+    for (i = 0; i < n; ++i)
+        printf("%d", arr[i]);
+    printf("\n");
+}
+
+// Function to check if a node is a leaf node
+int isLeafNode(struct MinHeapNode *root) {
+    return !(root->left) && !(root->right);
+}
+
+// Function to create and build Min Heap
+struct MinHeap *createAndBuildMinHeap(char characters[], int frequencies[], int size) {
+    struct MinHeap *minHeap = createMinHeap(size);
+    int i;
+    for ( i = 0; i < size; ++i)
+        minHeap->array[i] = newNode(characters[i], frequencies[i]);
+    minHeap->size = size;
+    buildMinHeap(minHeap);
+    return minHeap;
+}
+
+// Function to build Huffman Tree
+struct MinHeapNode *buildHuffmanTree(char characters[], int frequencies[], int size) {
+    struct MinHeapNode *left, *right, *top;
+    struct MinHeap *minHeap = createAndBuildMinHeap(characters, frequencies, size);
+    while (!isSizeOne(minHeap)) {
+        left = extractMin(minHeap);
+        right = extractMin(minHeap);
+        top = newNode('$', left->frequency + right->frequency);
+        top->left = left;
+        top->right = right;
+        insertMinHeap(minHeap, top);
+    }
+    return extractMin(minHeap);
+}
+
+// Function to print Huffman codes
+void printCodes(struct MinHeapNode *root, int arr[], int top) {
+    if (root->left) {
+        arr[top] = 0;
+        printCodes(root->left, arr, top + 1);
+    }
+    if (root->right) {
+        arr[top] = 1;
+        printCodes(root->right, arr, top + 1);
+    }
+    if (isLeafNode(root)) {
+        printf("%c: ", root->character);
+        printArr(arr, top);
+    }
+}
+
+// Function to read from a file
+void readFromFile(char *filename, char *characters, int *frequencies, int *size) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("File could not be opened.\n");
+        exit(EXIT_FAILURE);
+    }
+    char message[10000];
+    if (fgets(message, 10000, file) == NULL) {
+        printf("Error reading from file.\n");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+    fclose(file);
+    int frequenciesArray[256] = {0};
+    int i;
+    for (i = 0; message[i] != '\0'; i++)
+        frequenciesArray[(int)message[i]]++;
+    int j = 0;
+    int k;
+    for ( k = 0; k < 256; k++) {
+        if (frequenciesArray[k] != 0) {
+            characters[j] = (char)k;
+            frequencies[j] = frequenciesArray[k];
+            j++;
+        }
+    }
+    *size = j;
+}
+
+// Function to write to a file
+void writeToFile(char *filename, char *encodedText) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("File could not be opened.\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(file, "%s", encodedText);
+    fclose(file);
+}
+
+// Function to decode Huffman encoded text
+char *decodeHuffman(struct MinHeapNode *root, char *encodedText) {
+    struct MinHeapNode *temp = root;
+    int index = -1;
+    int length = strlen(encodedText);
+    char *decodedText = (char *)malloc((length + 1) * sizeof(char)); // +1 for null terminator
+    int i;
+    for ( i = 0; i < length; i++) {
+        if (encodedText[i] == '0')
+            temp = temp->left;
+        else
+            temp = temp->right;
+        if (temp->left == NULL && temp->right == NULL) {
+            decodedText[++index] = temp->character;
+            temp = root;
+        }
+    }
+    decodedText[++index] = '\0';
+    return decodedText;
+}
+
+int main() {
+    char filename[500];
+    printf("Enter the filename: ");
+    scanf("%499s", filename); // Limit input to avoid buffer overflow
+    char characters[256];
+    int frequencies[256];
+    int size;
+    readFromFile(filename, characters, frequencies, &size);
+
+    // Huffman Encoding
+    struct MinHeapNode *root = buildHuffmanTree(characters, frequencies, size);
+    int arr[MAX_TREE_HT], top = 0;
+    printCodes(root, arr, top);
+
+    // Writing encoded text to file
+    char *encodedText = "encodedText"; // Placeholder, replace with actual encoded text
+    writeToFile("encoded.bin", encodedText);
+
+    // Calculating original file size
+    FILE *file = fopen(filename, "r");
+    fseek(file, 0L, SEEK_END);
+    long originalFileSize = ftell(file);
+    fclose(file);
+
+    // Calculating compressed file size
+    FILE *encodedFile = fopen("encoded.bin", "rb");
+    fseek(encodedFile, 0L, SEEK_END);
+    long compressedFileSize = ftell(encodedFile);
+    fclose(encodedFile);
+
+    printf("Original file size: %ld bytes\n", originalFileSize);
+    printf("Compressed file size: %ld bytes\n", compressedFileSize);
+
+    // Free allocated memory
+    free(root); // Free the Huffman tree nodes
+    // Add more memory deallocation if necessary
+
+    return 0;
+}
